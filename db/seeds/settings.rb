@@ -6506,3 +6506,21 @@ Setting.create_if_not_exists(
   preferences: { online_service_disable: true, permission: ['admin.package'] },
   frontend:    false,
 )
+
+# Hotaru reply suggestions are explicitly enabled for a pilot group only.
+Setting.create_if_not_exists(
+  title: 'Hotaru reply suggestions',
+  name: 'hotaru_reply_drafts',
+  area: 'Integration::Hotaru',
+  description: 'Enable customer reply suggestions in the classic agent composer.',
+  state: false,
+  frontend: true,
+)
+Setting.create_if_not_exists(
+  title: 'Hotaru reply suggestion groups',
+  name: 'hotaru_reply_draft_group_ids',
+  area: 'Integration::Hotaru',
+  description: 'Group IDs allowed to request customer reply suggestions.',
+  state: [],
+  frontend: true,
+)

@@ -8,6 +8,7 @@ on:
 
 jobs:
   CI:
+    if: github.repository == 'zammad/zammad'
     runs-on: ubuntu-latest
     container:
       image: zammad/zammad-ci:latest
@@ -16,11 +17,12 @@ jobs:
         image: postgres:18
         env:
           POSTGRES_USER: zammad
-          POSTGRES_PASSWORD: zammad
+          POSTGRES_PASSWORD: ${{ secrets.CI_DATABASE_PASSWORD }}
       redis:
         image: redis:6
     env:
       RAILS_ENV: test
+      CI_DATABASE_PASSWORD: ${{ secrets.CI_DATABASE_PASSWORD }}
       Z_LOCALES: "en-us:de-de"
       TZ: 'Europe/London'
       REDIS_URL: redis://redis:6379
@@ -46,6 +48,12 @@ jobs:
           key: ${{ runner.os }}-cache-bundler-${{ hashFiles('Gemfile.lock') }}
       - name: Pre
         run: .github/workflows/ci/pre.sh
+      - name: Hotaru reply proxy request specs
+        shell: bash
+        run: |
+          source /etc/profile.d/rvm.sh
+          source .gitlab/environment.env
+          bundle exec rspec spec/requests/hotaru_reply_drafts_spec.rb
       - name: Cache ESLint
         id: cache-eslint
         uses: actions/cache@v6

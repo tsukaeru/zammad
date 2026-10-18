@@ -47,7 +47,7 @@ class ConfigureEnvironment
     db_settings = {
       'adapter'  => 'postgresql',
       'username' => 'zammad',
-      'password' => 'zammad',
+      'password' => ENV.fetch('CI_DATABASE_PASSWORD') { ENV.fetch('POSTGRES_PASSWORD') },
       'host'     => 'postgresql', # db alias from gitlab-ci.yml
     }.freeze
 

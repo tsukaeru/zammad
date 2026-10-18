@@ -130,6 +130,11 @@ class App.TicketZoomArticleNew extends App.Controller
       @updateSignatureByGroup(data.newGroupId)
     )
 
+    @controllerBind('config_update', (data) =>
+      return if data.name not in ['hotaru_reply_drafts', 'hotaru_reply_draft_group_ids']
+      @hotaruReplySuggestion?.invalidate()
+    )
+
     # Listen to security setting changes.
     @controllerBind('config_update', (data) =>
       return if not /^(pgp|smime)_integration$/.test(data.name)
@@ -194,6 +199,10 @@ class App.TicketZoomArticleNew extends App.Controller
     return detected.browser.major == 10
 
   release: =>
+    @hotaruReplySuggestion?.destroy()
+    if @subscribeHotaruReply
+      App.Ticket.unsubscribe(@subscribeHotaruReply)
+
     if @subscribeIdTextModule
       App.Ticket.unsubscribe(@subscribeIdTextModule)
 
@@ -204,6 +213,8 @@ class App.TicketZoomArticleNew extends App.Controller
     $(window).off 'click.ticket-zoom-textarea'
 
   render: ->
+    @hotaruReplySuggestion?.destroy()
+    @hotaruReplySuggestion = null
     @releaseGlobalClickEvents()
     ticket = App.Ticket.fullLocal(@ticket_id)
 
@@ -308,6 +319,47 @@ class App.TicketZoomArticleNew extends App.Controller
         @renderAttachment(attachment)
 
     @richtextBubbleMenuInit(@textarea.parent(), false)
+    @initHotaruReplySuggestion()
+
+  initHotaruReplySuggestion: ->
+    return if @ticket.currentView() isnt 'agent'
+    return if App.Config.get('hotaru_reply_drafts') isnt true
+
+    editor = @textarea.get(0)
+    @hotaruReplySuggestion = new HotaruReplySuggestion(
+      editor: editor
+      root: @articleNewEdit.get(0)
+      eligible: =>
+        groups = App.Config.get('hotaru_reply_draft_group_ids') || []
+        App.Config.get('hotaru_reply_drafts') is true &&
+          @ticket.currentView() is 'agent' &&
+          groups.map(String).includes(String(@ticket.group_id)) &&
+          @type is 'email' && @articleNewEdit.hasClass('is-public') &&
+          @articleNewEdit.closest('.content.active').length > 0
+      context: =>
+        JSON.stringify([@ticket.id, @ticket.updated_at, @ticket.group_id, @type,
+          @articleNewEdit.hasClass('is-public'),
+          @articleNewEdit.find('input, select').serializeArray()])
+      request: (action, data, signal) =>
+        suffix = if action is 'validate' then '/validate' else ''
+        fetch("#{App.Config.get('api_path')}/tickets/#{@ticket_id}/hotaru_reply_draft#{suffix}",
+          method: 'POST'
+          credentials: 'same-origin'
+          cache: 'no-store'
+          headers:
+            'Content-Type': 'application/json'
+            'X-CSRF-Token': App.Ajax.token()
+          body: JSON.stringify(data)
+          signal: signal
+        ).then((response) ->
+          throw new Error('Reply suggestion unavailable') if !response.ok
+          response.json()
+        )
+      insert: (html) -> $.data(editor, 'plugin_ce').paste(html)
+    )
+    if !@subscribeHotaruReply
+      @subscribeHotaruReply = @ticket.subscribe(=> @hotaruReplySuggestion?.invalidate())
+
 
   params: =>
     params = @formParam( @$('.article-add') )
@@ -460,6 +512,7 @@ class App.TicketZoomArticleNew extends App.Controller
     @el.find('.js-articleTypes').addClass('is-hidden')
 
   setArticleInternal: (internal) =>
+    @hotaruReplySuggestion?.invalidate()
     @articleNewEdit
       .toggleClass('is-public', !internal)
       .toggleClass('is-internal', internal)
@@ -478,6 +531,7 @@ class App.TicketZoomArticleNew extends App.Controller
     @$('[name=internal]').val(value)
 
   setArticleTypePre: (type, signaturePosition = 'bottom') =>
+    @hotaruReplySuggestion?.invalidate()
     type = @normalizeArticleType(type)
     wasScrolledToBottom = @isScrolledToBottom()
 

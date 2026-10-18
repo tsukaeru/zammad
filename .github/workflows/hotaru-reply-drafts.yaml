@@ -23,9 +23,63 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4.9'
-      - run: gem install minitest --no-document
+      - run: gem install minitest --version 5.25.5 --no-document
       - run: ruby test/hotaru/client_test.rb
       - run: npm ci --prefix test/hotaru --ignore-scripts --no-audit --no-fund
       - run: npm test --prefix test/hotaru
         env:
           CHROME_PATH: /usr/bin/google-chrome
+  rails-request-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RAILS_ENV: test
+      Z_LOCALES: en-us
+      CI_SKIP_ASSETS_PRECOMPILE: 'true'
+      CI_SKIP_DB_RESET: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native gem dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y libpq-dev libicu-dev libxml2-dev libxslt1-dev libsodium-dev shared-mime-info
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.9'
+          bundler-cache: true
+      - name: Provision isolated test databases
+        shell: bash
+        run: |
+          set -eu
+          umask 077
+          mkdir -p tmp/hotaru-ci
+          python3 - <<'PY'
+          import os, pathlib, secrets
+          db = secrets.token_hex(32)
+          redis = secrets.token_hex(32)
+          # Register generated values for runner-side masking before any service can log them.
+          print('::add-mask::' + db)
+          print('::add-mask::' + redis)
+          private = pathlib.Path('tmp/hotaru-ci')
+          (private / 'postgres.env').write_text('POSTGRES_USER=zammad\nPOSTGRES_PASSWORD=' + db + '\nPOSTGRES_DB=zammad_test\n')
+          (private / 'redis.conf').write_text('bind 0.0.0.0\nport 6379\nrequirepass ' + redis + '\n')
+          pathlib.Path('config/database.yml').write_text('test:\n  adapter: postgresql\n  database: zammad_test\n  username: zammad\n  password: ' + db + '\n  host: 127.0.0.1\n  port: 5432\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('REDIS_URL=redis://:' + redis + '@127.0.0.1:6379\n')
+          PY
+          docker run -d --name hotaru-postgres --publish 127.0.0.1:5432:5432 --env-file tmp/hotaru-ci/postgres.env postgres:18
+          docker run -d --name hotaru-redis --user "$(id -u):$(id -g)" --workdir /tmp --publish 127.0.0.1:6379:6379 --volume "$PWD/tmp/hotaru-ci/redis.conf:/usr/local/etc/redis/redis.conf:ro" redis:6 redis-server /usr/local/etc/redis/redis.conf
+          for attempt in $(seq 1 30); do
+            if docker exec hotaru-postgres pg_isready -U zammad >/dev/null; then break; fi
+            sleep 1
+          done
+          test "$(docker port hotaru-postgres 5432)" = '127.0.0.1:5432'
+          test "$(docker port hotaru-redis 6379)" = '127.0.0.1:6379'
+          sudo ss -ltnp '( sport = :5432 or sport = :6379 )'
+      - name: Initialize synthetic Rails test database
+        run: bundle exec rake zammad:db:init
+      - name: Verify actual session, CSRF and ticket policy boundaries
+        run: bundle exec rspec spec/requests/hotaru_reply_drafts_spec.rb
+      - name: Remove ephemeral test services
+        if: always()
+        run: |
+          docker rm -f hotaru-postgres hotaru-redis || true
+          rm -rf tmp/hotaru-ci config/database.yml

@@ -5,6 +5,7 @@ on:
 
 jobs:
   docker-ci:
+    if: github.repository == 'zammad/zammad'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

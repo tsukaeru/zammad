@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'minitest/autorun'
+require 'minitest/mock'
 require 'json'
 require 'openssl'
 require 'securerandom'
@@ -12,7 +13,8 @@ class HotaruReplyDraftClientTest < Minitest::Test
     @client = Hotaru::ReplyDraftClient.new(env: @config)
   end
 
-  def response(body, code: '200')
+  def response(body = nil, code: '200', **fields)
+    body ||= fields
     result = Net::HTTPResponse.new('1.1', code, 'result')
     result.instance_variable_set(:@read, true)
     result.body = JSON.generate(body)

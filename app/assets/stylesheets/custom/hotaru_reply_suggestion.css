@@ -1,6 +1,9 @@
 .hotaru-reply-suggestion {
   position: relative;
-  margin: 0 0 8px;
+  height: 0;
+  z-index: 1;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 .hotaru-reply-preview {
@@ -14,6 +17,7 @@
 
 .hotaru-reply-suggestion button {
   margin: 4px 8px 0 0;
+  pointer-events: auto;
 }
 
 .hotaru-reply-status {

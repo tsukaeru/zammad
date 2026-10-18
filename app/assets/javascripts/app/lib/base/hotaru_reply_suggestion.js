@@ -10,6 +10,13 @@
       this.panel = document.createElement('div')
       this.panel.className = 'hotaru-reply-suggestion'
       this.panel.innerHTML = '<div class="hotaru-reply-preview" hidden></div><div class="hotaru-reply-status" role="status" aria-live="polite"></div><button type="button" class="hotaru-reply-accept" hidden>Accept reply suggestion (Tab)</button><button type="button" class="hotaru-reply-retry" hidden>Retry reply suggestion</button>'
+      const style = getComputedStyle(this.editor)
+      this.originalPaddingTop = this.editor.style.paddingTop
+      this.basePaddingTop = parseFloat(style.paddingTop) || 0
+      this.panel.style.top = this.basePaddingTop + 'px'
+      this.panel.style.paddingLeft = style.paddingLeft
+      this.panel.style.paddingRight = style.paddingRight
+      this.panel.style.font = style.font
       this.editor.before(this.panel)
       this.preview = this.panel.querySelector('.hotaru-reply-preview')
       this.status = this.panel.querySelector('.hotaru-reply-status')
@@ -29,6 +36,12 @@
         if (this.baseline !== undefined && this.editor.innerHTML !== this.baseline) this.invalidate()
       })
       this.observer.observe(this.editor, { childList: true, subtree: true, characterData: true, attributes: true })
+      this.layoutObserver = new ResizeObserver(() => this.layout())
+      Array.from(this.panel.children).forEach((node) => this.layoutObserver.observe(node))
+    }
+    layout() {
+      const height = this.panel.scrollHeight
+      this.editor.style.paddingTop = height ? (this.basePaddingTop + height + 8) + 'px' : this.originalPaddingTop
     }
     listen(element, event, callback) {
       element.addEventListener(event, callback)
@@ -52,7 +65,8 @@
       this.preview.hidden = true
       this.acceptButton.hidden = true
       this.status.textContent = ''
-      this.retryButton.hidden = !this.eligible() || !this.empty()
+      this.retryButton.hidden = true
+      this.layout()
     }
     retry() {
       this.invalidate()
@@ -79,6 +93,7 @@
       this.snapshot = this.context()
       this.retryButton.hidden = true
       this.status.textContent = 'Preparing reply suggestion…'
+      this.layout()
       const request_id = global.crypto.randomUUID()
       try {
         const result = await this.call('generate', { request_id, language: 'auto' })
@@ -91,6 +106,7 @@
         this.preview.textContent = result.draft
         this.preview.hidden = false
         this.acceptButton.hidden = false
+        this.layout()
       } catch (_) {
         if (generation !== this.generation) return
         this.status.textContent = 'Reply suggestion unavailable. You can continue composing or retry.'
@@ -138,11 +154,15 @@
         if (generation !== this.generation) return
         this.invalidate()
         this.status.textContent = 'Reply suggestion could not be checked. Retry to generate a fresh suggestion.'
+        this.retryButton.hidden = false
+        this.layout()
       }
     }
     destroy() {
       this.invalidate()
       this.observer.disconnect()
+      this.layoutObserver.disconnect()
+      this.editor.style.paddingTop = this.originalPaddingTop
       this.listeners.forEach((remove) => remove())
       this.panel.remove()
     }

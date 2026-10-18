@@ -173,3 +173,29 @@ test('the production text module menu has Tab priority', async (t) => {
   assert.equal(await page.evaluate(() => document.querySelector('#editor').dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, bubbles: true, cancelable: true }))), true)
   assert.equal(await page.evaluate(() => calls.filter((c) => c.action === 'validate').length), 0)
 })
+
+test('ghost text overlays the reply box and restores layout after dismissal', async (t) => {
+  for (const body of ['', '<div data-signature="true">Regards Agent</div><blockquote>Original question</blockquote>']) {
+    const page = await fixture(t, body)
+    await page.addStyleTag({ content: '#editor { box-sizing: border-box; min-height: 100px; padding: 10px; border: 1px solid black; } #composer { width: 500px; }' })
+    await page.evaluate(() => { widget.destroy(); App.TicketZoomArticleNew.prototype.initHotaruReplySuggestion.call(composer); window.widget = composer.hotaruReplySuggestion })
+    const initial = await page.locator('#editor').evaluate((node) => ({ padding: node.style.paddingTop, minHeight: node.style.minHeight, html: node.innerHTML }))
+    await ready(page)
+    await page.waitForFunction(() => parseFloat(document.querySelector('#editor').style.paddingTop) > 10)
+    const geometry = await page.evaluate(() => {
+      const editor = document.querySelector('#editor').getBoundingClientRect()
+      const preview = document.querySelector('.hotaru-reply-preview').getBoundingClientRect()
+      const signature = document.querySelector('[data-signature]')?.getBoundingClientRect()
+      return { inside: preview.top >= editor.top && preview.bottom <= editor.bottom && preview.left >= editor.left && preview.right <= editor.right, signatureBelow: !signature || signature.top >= preview.bottom }
+    })
+    assert.equal(geometry.inside, true)
+    assert.equal(geometry.signatureBelow, true)
+    assert.equal(await page.locator('#editor').innerHTML(), initial.html)
+    if (process.env.PREVIEW_SCREENSHOT && body) await page.screenshot({ path: process.env.PREVIEW_SCREENSHOT })
+    await page.keyboard.press('Escape')
+    assert.equal(await page.locator('#editor').evaluate((node) => node.style.minHeight), initial.minHeight)
+    assert.equal(await page.locator('#editor').evaluate((node) => node.style.paddingTop), initial.padding)
+    await page.evaluate(() => widget.destroy())
+    assert.equal(await page.locator('#editor').evaluate((node) => node.style.paddingTop), initial.padding)
+  }
+})

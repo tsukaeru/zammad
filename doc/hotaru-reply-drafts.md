@@ -68,8 +68,10 @@ undo, escaping, preview exclusion, signatures, quotes, menu priority, lifecycle
 invalidation, pending acceptance protection, timeout/retry and feature gates.
 They do not replace a running full Zammad application or staging end-to-end test.
 Rails request specs cover actual session/CSRF/policy enforcement with the
-external Hotaru transport replaced. CI runs those specs before the general lint
-and test stages. A separate workflow runs the browser and signing checks.
+external Hotaru transport replaced. Focused fork CI runs those specs with
+per-run random database and Redis credentials and loopback-only service ports.
+The same workflow runs the browser and signing checks. Inherited upstream
+packaging/general CI jobs are skipped in this fork; packaging is unverified.
 
 ## Release gate
 

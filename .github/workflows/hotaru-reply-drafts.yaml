@@ -7,8 +7,6 @@ on:
       - 'test/hotaru/**'
       - 'app/assets/javascripts/app/controllers/ticket_zoom/article_new.coffee'
       - '.github/workflows/hotaru-reply-drafts.yaml'
-  push:
-    branches: ['codex/hotaru-inline-reply-suggestions']
 permissions:
   contents: read
 jobs:
@@ -40,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install native gem dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y libpq-dev libicu-dev libxml2-dev libxslt1-dev libsodium-dev shared-mime-info
+        run: sudo apt-get update -qq && sudo apt-get install -y libpq-dev libicu-dev libxml2-dev libxslt1-dev libsodium-dev libimlib2-dev shared-mime-info
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4.9'

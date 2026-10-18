@@ -130,6 +130,11 @@ class App.TicketZoomArticleNew extends App.Controller
       @updateSignatureByGroup(data.newGroupId)
     )
 
+    @controllerBind('config_update', (data) =>
+      return if data.name not in ['hotaru_reply_drafts', 'hotaru_reply_draft_group_ids']
+      @hotaruReplySuggestion?.invalidate()
+    )
+
     # Listen to security setting changes.
     @controllerBind('config_update', (data) =>
       return if not /^(pgp|smime)_integration$/.test(data.name)

@@ -109,6 +109,7 @@
         this.layout()
       } catch (_) {
         if (generation !== this.generation) return
+        if (!this.eligible() || !this.empty()) { this.invalidate(); return }
         this.status.textContent = 'Reply suggestion unavailable. You can continue composing or retry.'
         this.retryButton.hidden = false
       }
@@ -152,6 +153,7 @@
         this.editor.dispatchEvent(new Event('change', { bubbles: true }))
       } catch (_) {
         if (generation !== this.generation) return
+        if (!this.eligible() || !this.empty()) { this.invalidate(); return }
         this.invalidate()
         this.status.textContent = 'Reply suggestion could not be checked. Retry to generate a fresh suggestion.'
         this.retryButton.hidden = false

@@ -46,6 +46,12 @@ jobs:
           key: ${{ runner.os }}-cache-bundler-${{ hashFiles('Gemfile.lock') }}
       - name: Pre
         run: .github/workflows/ci/pre.sh
+      - name: Hotaru reply proxy request specs
+        shell: bash
+        run: |
+          source /etc/profile.d/rvm.sh
+          source .gitlab/environment.env
+          bundle exec rspec spec/requests/hotaru_reply_drafts_spec.rb
       - name: Cache ESLint
         id: cache-eslint
         uses: actions/cache@v6

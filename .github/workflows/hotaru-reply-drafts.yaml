@@ -1,0 +1,31 @@
+name: Hotaru reply drafts
+on:
+  pull_request:
+    paths:
+      - '**hotaru**'
+      - 'lib/hotaru/**'
+      - 'test/hotaru/**'
+      - 'app/assets/javascripts/app/controllers/ticket_zoom/article_new.coffee'
+      - '.github/workflows/hotaru-reply-drafts.yaml'
+  push:
+    branches: ['codex/hotaru-inline-reply-suggestions']
+permissions:
+  contents: read
+jobs:
+  browser-and-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.9'
+      - run: gem install minitest --no-document
+      - run: ruby test/hotaru/client_test.rb
+      - run: npm ci --prefix test/hotaru --ignore-scripts --no-audit --no-fund
+      - run: npm test --prefix test/hotaru
+        env:
+          CHROME_PATH: /usr/bin/google-chrome

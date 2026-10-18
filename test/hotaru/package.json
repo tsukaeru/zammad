@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "description": "Synthetic classic-editor tests; uses the production Hotaru widget and contenteditable plugin",
+  "scripts": { "test": "node --test browser.test.cjs" },
+  "devDependencies": { "playwright": "1.58.2", "coffee-script": "1.12.7" }
+}
